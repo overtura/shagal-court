@@ -4,6 +4,9 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), cloudflare()],
+  define: {
+    "import.meta.env.VITE_PUBLIC_SHARING": JSON.stringify(process.env.VITE_PUBLIC_SHARING ?? (process.env.VERCEL ? "disabled" : "enabled")),
+  },
   build: {
     target: "es2022",
     sourcemap: true,

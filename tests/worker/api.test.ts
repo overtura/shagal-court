@@ -163,6 +163,8 @@ describe("Worker and D1 API", () => {
 
   it("returns generalized 404 for SQL injection, expiration, and hidden records", async () => {
     expect((await call(`/api/cases/${encodeURIComponent("' OR 1=1 --")}`)).status).toBe(404);
+    expect((await call("/api/cases/%E0%A4%A")).status).toBe(404);
+    expect((await call("/api/admin/cases/%E0%A4%A", "DELETE", undefined, { authorization: `Bearer ${env.ADMIN_TOKEN}` })).status).toBe(404);
     const payload = createPayload();
     const createdResponse = await call("/api/cases", "POST", payload);
     expect(createdResponse.status).toBe(201);

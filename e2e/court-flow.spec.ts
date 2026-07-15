@@ -15,7 +15,7 @@ test("local verdict, explicit publish, shared vote change, and report", async ({
   await page.getByRole("textbox", { name: /사건 진술/ }).fill("예약 시간에 맞춰 갔는데 가게가 아무 말 없이 문을 닫았다.");
   await page.getByRole("button", { name: "판결 도장 찍기" }).click();
   await expect(page.getByText("이 판결은 밈입니다. 실제 법률 판단이나 법률 조언이 아닙니다.")).toBeVisible();
-  await expect(page.getByText(/결정론적 오프라인 fallback/)).toBeVisible();
+  await expect(page.getByText(/결정론적 오프라인 대체 방식/)).toBeVisible();
 
   await page.getByRole("button", { name: "공개 내용 확인하기" }).click();
   await expect(page.getByRole("heading", { name: "공개할 한 문장을 다시 확인하세요" })).toBeVisible();

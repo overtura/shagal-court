@@ -13,6 +13,8 @@ const EXAMPLES = [
   "예약 시간에 맞춰 갔는데 가게가 아무 말 없이 문을 닫았다.",
 ];
 
+const PUBLIC_SHARING_ENABLED = import.meta.env.VITE_PUBLIC_SHARING !== "disabled";
+
 interface CurrentVerdict {
   entryId: string;
   originalStatement: string;
@@ -24,7 +26,7 @@ interface CurrentVerdict {
 const MODEL_LABELS: Record<LocalAnalysisResult["modelMode"], string> = {
   webgpu: "WebGPU 로컬 모델",
   wasm: "WASM 로컬 모델",
-  fallback: "결정론적 오프라인 fallback",
+  fallback: "결정론적 오프라인 대체 방식",
 };
 
 export function LocalCourt() {
@@ -64,7 +66,7 @@ export function LocalCourt() {
           <p className="docket-number">온라인 밈 사건부 · 제001호</p>
           <h1 id="hero-title">억울한 한 줄,<br /><em>샤갈인지 판결합니다.</em></h1>
           <p className="hero-lede">문장은 브라우저 안에서 먼저 분석됩니다. 당신이 공개에 동의하기 전에는 서버로 보내지 않습니다.</p>
-          <div className="privacy-seal"><span aria-hidden="true">로컬</span><p><strong>원문 서버 전송 없음</strong><br />WebGPU · WASM · 오프라인 fallback</p></div>
+          <div className="privacy-seal"><span aria-hidden="true">로컬</span><p><strong>원문 서버 전송 없음</strong><br />WebGPU · WASM · 오프라인 대체 방식</p></div>
         </div>
         <form className="intake-form paper-panel" onSubmit={judge}>
           <label htmlFor="statement"><span>사건 진술</span><small>이름·연락처·주소는 쓰지 마세요.</small></label>
@@ -94,16 +96,26 @@ export function LocalCourt() {
           <aside className="result-actions">
             <LocalPartyVote caseId={current.entryId} />
             <section className="share-callout">
-              <p className="eyebrow">전역 배심원에게 묻기</p>
-              <h3>이 판결을 익명 사건으로 공개할까요?</h3>
-              <p>공개 문장을 별도로 확인한 뒤에만 서버에 저장합니다.</p>
-              <button className="secondary-button" type="button" onClick={() => setShowPublish((value) => !value)}>{showPublish ? "공개 확인 닫기" : "공개 내용 확인하기"}</button>
+              {PUBLIC_SHARING_ENABLED ? (
+                <>
+                  <p className="eyebrow">전역 배심원에게 묻기</p>
+                  <h3>이 판결을 익명 사건으로 공개할까요?</h3>
+                  <p>공개 문장을 별도로 확인한 뒤에만 서버에 저장합니다.</p>
+                  <button className="secondary-button" type="button" onClick={() => setShowPublish((value) => !value)}>{showPublish ? "공개 확인 닫기" : "공개 내용 확인하기"}</button>
+                </>
+              ) : (
+                <>
+                  <p className="eyebrow">현재 배포 범위</p>
+                  <h3>로컬 판결을 먼저 체험해 보세요</h3>
+                  <p>익명 공개·투표는 Cloudflare Worker와 D1 운영 배포가 준비된 뒤 열립니다.</p>
+                </>
+              )}
             </section>
           </aside>
         </section>
       )}
 
-      {current && showPublish && (
+      {PUBLIC_SHARING_ENABLED && current && showPublish && (
         <PublishPanel
           initialStatement={current.originalStatement}
           analysis={current.analysis}

@@ -57,7 +57,7 @@ export function PublishPanel({ initialStatement, analysis, onPublished }: {
         />
         <div className="field-meta"><span>개인정보·연락처·주소·URL은 공개할 수 없습니다.</span><span>{publicStatement.length}/{MAX_STATEMENT_LENGTH}</span></div>
         <ul className="retention-list">
-          <li>공개 사건은 검색·목록에 노출되지 않는 unlisted URL입니다.</li>
+          <li>공개 사건은 검색·목록에 노출되지 않는 고유 URL로만 열립니다.</li>
           <li>90일 후 자동 만료되며 전역 배심원 투표가 표시됩니다.</li>
           <li>판결은 서버에서 분석값으로 다시 계산됩니다.</li>
         </ul>

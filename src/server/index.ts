@@ -8,10 +8,19 @@ import { voteOnCase } from "./routes/votes";
 
 const SLUG_PATTERN = /^[a-z0-9_-]{10,32}$/;
 
+function decodePathSegment(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
 function matchCasePath(pathname: string, suffix = ""): string | null {
   const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = pathname.match(new RegExp(`^/api/cases/([^/]+)${escapedSuffix}$`));
-  const slug = match?.[1] ? decodeURIComponent(match[1]) : null;
+  const slug = decodePathSegment(match?.[1]);
   return slug && SLUG_PATTERN.test(slug) ? slug : null;
 }
 
@@ -32,7 +41,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if (reportSlug && method === "POST") return reportCase(request, reportSlug, env);
 
   const adminMatch = url.pathname.match(/^\/api\/admin\/cases\/([^/]+)(\/hide)?$/);
-  const adminSlug = adminMatch?.[1] ? decodeURIComponent(adminMatch[1]) : null;
+  const adminSlug = decodePathSegment(adminMatch?.[1]);
   if (adminSlug && SLUG_PATTERN.test(adminSlug)) {
     if (method === "POST" && adminMatch?.[2] === "/hide") return hideCase(request, adminSlug, env);
     if (method === "DELETE" && !adminMatch?.[2]) return deleteCase(request, adminSlug, env);
