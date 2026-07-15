@@ -25,6 +25,8 @@
 
 본문 건너뛰기 링크, 실제 label, semantic heading, `meter` 이름, `aria-live`, 충분한 focus outline을 제공한다. 색만으로 선택을 구분하지 않는다. `prefers-reduced-motion`에서 애니메이션과 smooth scroll을 제거한다.
 
+브랜드 메타데이터는 한글 제목·설명·대체 텍스트를 사용한다. 생성형 원본 이미지는 상아색 종이, 먹색 선, 도장 적색만 사용하며 favicon, Apple touch icon, PWA manifest, Open Graph/Twitter 카드에서 같은 의미 체계를 유지한다.
+
 ## 네트워크 상태
 
 모델 방식은 WebGPU/WASM/fallback으로 텍스트 표시한다. 공개 실패는 판결 카드와 분리된 alert로 나타내어 로컬 결과가 사라진 것처럼 보이지 않게 한다.
