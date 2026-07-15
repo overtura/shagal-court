@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 2,
+  "source": "fallback-only",
+  "lastSyncedAt": null,
+  "mergedSmallSinceMajor": 0,
+  "nextSize": "small",
+  "lastMergedPullRequest": null,
+  "note": "GitHub merged PR labels are authoritative whenever they are reachable."
+}

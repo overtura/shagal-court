@@ -1,0 +1,10 @@
+{"id":"product-original-boundary","question":"공개 동의 전에 원문이 서버로 전송되는가?","expected":"아니다. 원문은 브라우저 로컬이며 별도로 검토한 publicStatement만 명시적 동의 후 전송된다.","sources":["README.md","docs/PRODUCT.md","docs/PRIVACY.md"]}
+{"id":"ai-order","question":"로컬 분석 fallback 우선순위는 무엇인가?","expected":"WebGPU, WASM, deterministic fallback 순서다.","sources":["docs/AI.md"]}
+{"id":"legal-disclaimer","question":"판결이 법률 조언인가?","expected":"아니다. 모든 결과는 밈이며 실제 법률 판단이나 법률 조언이 아니라는 disclaimer를 표시한다.","sources":["README.md","docs/SAFETY.md"]}
+{"id":"api-create","question":"사건 공개 요청이 받는 핵심 필드는 무엇인가?","expected":"publicStatement, validated analysis, deviceId, idempotencyKey, consent, optional turnstileToken이다. originalStatement나 client verdict 문자열은 없다.","sources":["docs/API.md"]}
+{"id":"identity-storage","question":"DB는 사용자를 어떻게 식별하는가?","expected":"random local device ID를 목적별 HMAC-SHA-256으로 바꾼 값만 저장하고 IP, User-Agent, fingerprint는 저장하지 않는다.","sources":["docs/PRIVACY.md","docs/DATABASE.md"]}
+{"id":"vote-update","question":"같은 기기가 투표를 바꾸면 counter는 어떻게 되는가?","expected":"같은 선택은 no-op이고 변경은 이전 counter 감소와 새 counter 증가를 D1 batch로 수행하며 음수를 방지한다.","sources":["docs/API.md","docs/DATABASE.md"]}
+{"id":"hidden-response","question":"숨김, 만료, 없는 사건은 어떻게 구분되는가?","expected":"외부에는 구분되지 않는 동일한 일반 404로 응답한다.","sources":["docs/SAFETY.md","docs/API.md"]}
+{"id":"cost-limits","question":"Workers와 D1 Free guard의 공식 기준은 무엇인가?","expected":"Workers 100,000 requests/day와 10ms CPU, D1 5 million rows read/day, 100,000 rows written/day, 5 GB total이다.","sources":["docs/COST_GUARD.md"]}
+{"id":"cadence","question":"자가개선 size cadence는 무엇인가?","expected":"실제 merged PR 기준 small 네 번 뒤 major 한 번이며 실패한 major는 cadence를 진행시키지 않는다.","sources":["docs/SELF_IMPROVEMENT.md","AGENTS.md"]}
+{"id":"protected","question":"자동 병합할 수 없는 protected change 예시는 무엇인가?","expected":"migration, auth/admin security, secret, Cloudflare binding, workflow, model replacement, 개인정보 확대, rate/safety 완화다.","sources":["docs/SELF_IMPROVEMENT.md","docs/SAFETY.md"]}

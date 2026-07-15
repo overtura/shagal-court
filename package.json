@@ -1,0 +1,61 @@
+{
+  "name": "shagal-court",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.15.0"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm typecheck && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "test": "pnpm test:client && pnpm test:worker",
+    "test:client": "vitest run --config vitest.config.ts",
+    "test:worker": "vitest run --config vitest.worker.config.ts",
+    "test:e2e": "playwright test",
+    "cost:check": "tsx scripts/check-cost-guard.ts",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm cost:check",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply shagal-court-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply shagal-court-db --remote",
+    "cf-typegen": "wrangler types",
+    "improve": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-self-improvement.ps1",
+    "improve:dry": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-self-improvement.ps1 -DryRun",
+    "improve:small": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-self-improvement.ps1 -ForceSize small",
+    "improve:major": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-self-improvement.ps1 -ForceSize major",
+    "improve:status": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/run-self-improvement.ps1 -StatusOnly"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.44.0",
+    "@cloudflare/vitest-pool-workers": "^0.18.4",
+    "@cloudflare/workers-types": "^5.20260715.1",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.61.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "eslint": "^10.7.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^16.4.0",
+    "jsdom": "^29.1.1",
+    "tsx": "^4.21.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.64.0",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.110.0"
+  }
+}
