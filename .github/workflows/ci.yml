@@ -31,6 +31,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: cp .dev.vars.example .dev.vars
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm db:migrate:local
       - run: pnpm test:e2e
