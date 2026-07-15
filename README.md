@@ -1,5 +1,7 @@
 # 샤갈 재판소
 
+[서비스 바로가기](https://shagal-court.vercel.app/) · [배포와 운영 안내](docs/DEPLOYMENT.md)
+
 ![상아색 사건 기록지 위를 검은 붓 획과 붉은 판결 도장이 가로지르는 샤갈 재판소 추상 이미지](public/shagal-court-social.png)
 
 억울하거나 황당한 일을 한 줄로 적으면 브라우저 로컬 임베딩과 결정론적 규칙으로 밈 판결을 만드는 개인정보 보호 중심 웹앱입니다. 원문은 공개 동의 전까지 브라우저를 떠나지 않습니다. 사용자가 별도로 확인한 공개 문장만 최대 90일 동안 Cloudflare D1에 보관되며, 검색에 노출되지 않는 고유 URL에서 익명 배심원 투표와 신고를 받을 수 있습니다.
@@ -8,12 +10,12 @@
 
 ## 핵심 경계
 
-- 로컬 분석: `Xenova/paraphrase-multilingual-MiniLM-L12-v2`, WebGPU → WASM → 결정론적 fallback
-- 서버: 하나의 Cloudflare Worker, Static Assets, D1, 선택적 Turnstile
-- 개인정보: 원본 IP·User-Agent·fingerprint를 저장하지 않고 random device ID의 HMAC만 저장
+- 로컬 분석: `Xenova/paraphrase-multilingual-MiniLM-L12-v2`, WebGPU → WASM → 결정론적 대체 방식
+- 서버: 하나의 Cloudflare Worker, 정적 자산, D1, 선택적 Turnstile
+- 개인정보: 원본 IP·브라우저 식별자·지문 정보를 저장하지 않고 임의 기기 ID의 HMAC만 저장
 - 공개: 명시적 동의 후 검토한 한 문장만 전송, 검색·피드·랭킹 없음
-- 비용: Workers/D1 Free 한도 안에서만 동작하고 초과 시 공개 기능만 제한
-- 만료: 사건은 기본 90일 후 scheduled cleanup으로 삭제
+- 비용: Workers/D1 무료 한도 안에서만 동작하고 초과 시 공개 기능만 제한
+- 만료: 사건은 기본 90일 후 예약 정리 작업으로 삭제
 
 ## 빠른 시작
 

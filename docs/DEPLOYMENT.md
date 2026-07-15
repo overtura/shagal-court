@@ -55,7 +55,7 @@ pnpm deploy
 
 `vercel.json`은 `dist/client` 정적 결과와 단일 페이지 경로 재작성을 배포한다. Vercel 빌드에서는 시스템 변수 `VERCEL=1`을 감지해 익명 공개·전역 투표 UI를 숨기고, 브라우저 로컬 판결 체험만 제공한다. Cloudflare D1과 Worker API는 Vercel에서 실행되지 않으므로 전체 공개 기능의 운영 주소로 간주하지 않는다.
 
-저장소에 `VERCEL_TOKEN`을 연결한 뒤 GitHub Actions에서 `Deploy Vercel Production` 워크플로를 수동 실행한다. 워크플로는 프로젝트를 연결하고, 검증된 의존성에서 사전 빌드한 결과를 운영 환경에 배포한다. 비밀값이 없는 상태에서 `main` 변경마다 실패하지 않도록 자동 푸시 배포는 사용하지 않는다.
+운영 주소는 [https://shagal-court.vercel.app/](https://shagal-court.vercel.app/)이다. Vercel 프로젝트는 `overtura/shagal-court` GitHub 저장소와 연결되어 PR마다 미리보기 배포를 만들고, `main` 병합 결과를 운영 환경에 배포한다. 별도의 장기 Vercel 토큰은 저장소에 보관하지 않는다.
 
 Vercel 배포 후 루트 문서, `/case/:slug` 단일 페이지 진입, 한글 메타데이터, CSP·권한 제한 헤더, 로컬 판결 흐름을 확인한다.
 
