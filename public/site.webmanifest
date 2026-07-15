@@ -1,0 +1,19 @@
+{
+  "name": "샤갈 재판소",
+  "short_name": "샤갈 재판소",
+  "description": "브라우저 안에서 판결하고, 동의한 사건만 익명으로 공유하는 개인정보 보호 중심 밈 재판소",
+  "lang": "ko-KR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4efe3",
+  "theme_color": "#f4efe3",
+  "icons": [
+    {
+      "src": "/shagal-court-mark.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

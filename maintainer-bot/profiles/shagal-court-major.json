@@ -1,0 +1,48 @@
+{
+  "repository": "overtura/shagal-court",
+  "defaultBranch": "main",
+  "worktree": "targets/overtura/shagal-court",
+  "scope": "mixed",
+  "improvementKind": "feat",
+  "changeScale": "major",
+  "model": "gpt-5.6-sol",
+  "reasoningLevel": "Extra High",
+  "mode": "Goal",
+  "docPaths": ["README.md", "AGENTS.md", "docs", "maintainer-bot"],
+  "evalsPath": "maintainer-bot/evals/docs_qa.jsonl",
+  "projectConcept": "브라우저 로컬 임베딩과 결정론적 밈 판결, 명시적 공개 동의, unlisted 공유 URL, 익명 배심원 투표를 제공하는 privacy-first 샤갈 재판소",
+  "improvementFocus": [
+    "배심원 판결 요약을 포함한 완결된 공유 사건 vertical slice",
+    "privacy preview를 포함한 공유 카드 편집 경험",
+    "무료 한도 도달을 설명하고 로컬 판결을 유지하는 degraded mode",
+    "기존 schema만 사용하는 관리자 moderation queue CLI와 운영 리포트",
+    "같은 사건의 판결 엔진 버전 비교 경험"
+  ],
+  "avoidTopics": [
+    "서로 무관한 여러 기능을 한 PR에 묶기",
+    "미완성 화면, TODO, 가짜 버튼, mock-only 결과",
+    "문서·이름 변경·순수 리팩터링만으로 major를 채우기",
+    "migration, auth, secret, Cloudflare binding, workflow, AI 모델 변경",
+    "production dependency 추가와 외부 유료 서비스"
+  ],
+  "goalDirectives": [
+    "Plan and complete exactly one coherent user-visible vertical slice spanning at least three product areas.",
+    "Write acceptance criteria and a new E2E or failing reproduction before implementation.",
+    "A major slot fails if the result is documentation-only, incomplete, or lacks browser verification.",
+    "Preserve the existing schema, security boundary, local-first fallback, and zero-cost contract.",
+    "Run pnpm cost:check, pnpm verify, Playwright mobile and desktop checks, and Codex red-team before merge."
+  ],
+  "verifyCommands": ["pnpm install --frozen-lockfile", "pnpm cost:check", "pnpm verify", "pnpm test:e2e"],
+  "allowPaths": [
+    "src/client/**", "src/server/routes/**", "src/server/db/**", "src/shared/verdict-engine.ts",
+    "src/shared/verdict-templates.ts", "tests/**", "e2e/**", "docs/**", "README.md", "AGENTS.md", "maintainer-bot/**"
+  ],
+  "denyPaths": [
+    ".github/workflows/**", ".env*", ".dev.vars*", "wrangler.jsonc", "migrations/**", "package.json",
+    "pnpm-lock.yaml", "vite.config.*", "tsconfig*.json", "src/client/ai/model-config.ts", "src/server/config/limits.ts",
+    "src/server/env.ts", "src/server/security/**", "src/shared/contracts.ts", "**/auth/**", "**/security/**", "*.pem", "*.key"
+  ],
+  "maxFiles": 22,
+  "maxLines": 1500,
+  "autoMerge": true
+}

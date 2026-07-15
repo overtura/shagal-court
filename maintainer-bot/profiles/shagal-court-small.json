@@ -1,0 +1,48 @@
+{
+  "repository": "overtura/shagal-court",
+  "defaultBranch": "main",
+  "worktree": "targets/overtura/shagal-court",
+  "scope": "mixed",
+  "improvementKind": "auto",
+  "changeScale": "normal",
+  "model": "gpt-5.6-terra",
+  "reasoningLevel": "High",
+  "mode": "Goal",
+  "docPaths": ["README.md", "AGENTS.md", "docs", "maintainer-bot"],
+  "evalsPath": "maintainer-bot/evals/docs_qa.jsonl",
+  "projectConcept": "브라우저 로컬 임베딩과 결정론적 밈 판결, 명시적 공개 동의, unlisted 공유 URL, 익명 배심원 투표를 제공하는 privacy-first 샤갈 재판소",
+  "improvementFocus": [
+    "판결 입력과 결과 이해를 방해하는 작은 UX 문제",
+    "키보드, 명암, reduced motion, 360px 접근성 결함",
+    "로컬 모델 실패와 서버 장애 fallback의 명료성",
+    "공개 확인, 투표 수정, 신고 흐름의 작은 오류",
+    "무료 한도 안에서의 쿼리·렌더링 성능 개선",
+    "최근 병합된 self-improvement PR과 겹치지 않는 사용자 가치"
+  ],
+  "avoidTopics": [
+    "문서만 대량 수정하는 결과",
+    "migration, secret, 인증, Cloudflare binding, workflow 변경",
+    "AI 모델 교체와 production dependency 추가",
+    "공개 피드, 검색, 랭킹, polling, analytics",
+    "실제 법률 판단처럼 보이는 문구"
+  ],
+  "goalDirectives": [
+    "Complete one small user-visible improvement, its tests, browser verification, and matching docs.",
+    "Preserve local-first inference and never transmit the original statement before explicit publish consent.",
+    "Do not repeat the topic of a recently merged self-improvement pull request.",
+    "Do not change protected paths or add production dependencies."
+  ],
+  "verifyCommands": ["pnpm install --frozen-lockfile", "pnpm verify", "pnpm test:e2e"],
+  "allowPaths": [
+    "src/client/**", "src/server/routes/**", "src/server/db/**", "src/shared/verdict-engine.ts",
+    "src/shared/verdict-templates.ts", "tests/**", "e2e/**", "docs/**", "README.md", "AGENTS.md", "maintainer-bot/**"
+  ],
+  "denyPaths": [
+    ".github/workflows/**", ".env*", ".dev.vars*", "wrangler.jsonc", "migrations/**", "package.json",
+    "pnpm-lock.yaml", "vite.config.*", "tsconfig*.json", "src/client/ai/model-config.ts", "src/server/config/limits.ts",
+    "src/server/env.ts", "src/server/security/**", "src/shared/contracts.ts", "**/auth/**", "**/security/**", "*.pem", "*.key"
+  ],
+  "maxFiles": 8,
+  "maxLines": 300,
+  "autoMerge": true
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "shagal-court-test",
+  "main": "./src/server/index.ts",
+  "compatibility_date": "2026-07-15",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "shagal-court-test-db",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "APP_ENV": "test",
+    "CASE_TTL_DAYS": "90",
+    "HMAC_SECRET": "test-hmac-secret-that-is-long-enough-2026",
+    "ADMIN_TOKEN": "test-admin-token-that-is-long-enough-2026"
+  }
+}

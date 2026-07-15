@@ -1,0 +1,34 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "shagal-court",
+  "main": "./src/server/index.ts",
+  "compatibility_date": "2026-07-15",
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "shagal-court-db",
+      "database_id": "replace-with-cloudflare-d1-database-id",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": ["17 3 * * *"]
+  },
+  "limits": {
+    "cpu_ms": 10,
+    "subrequests": 10
+  },
+  "vars": {
+    "APP_ENV": "production",
+    "CASE_TTL_DAYS": "90"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.05
+  },
+  "upload_source_maps": true
+}

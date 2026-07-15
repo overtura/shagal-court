@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "projectSlug": "shagal-court",
+  "repository": "overtura/shagal-court",
+  "defaultBranch": "main",
+  "centralBotRepository": "okorion/self-improving-maintainer-bot",
+  "centralBotPath": "../../../self-improving-maintainer-bot",
+  "cadence": ["small", "small", "small", "small", "major"],
+  "profiles": {
+    "small": "maintainer-bot/profiles/shagal-court-small.json",
+    "major": "maintainer-bot/profiles/shagal-court-major.json"
+  },
+  "mergeMethod": "squash",
+  "deleteBranchAfterMerge": true,
+  "maximumAutomatedReviewResponses": 3,
+  "fallbackState": "maintainer-bot/cadence-state.json"
+}
