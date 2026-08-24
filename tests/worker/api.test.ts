@@ -141,7 +141,116 @@ describe("Worker and D1 API", () => {
     expect(await (await vote("guilty")).json()).toMatchObject({ changed: false, votes: { guilty: 1, notGuilty: 0 } });
     expect(await (await vote("not-guilty")).json()).toMatchObject({ changed: true, votes: { guilty: 0, notGuilty: 1 } });
     const counters = await env.DB.prepare("SELECT guilty_votes, not_guilty_votes FROM cases WHERE slug = ? LIMIT 1").bind(slug).first<{ guilty_votes: number; not_guilty_votes: number }>();
+    const usage = await env.DB.prepare("SELECT SUM(count) AS total FROM rate_limits WHERE action = 'vote'").first<{ total: number }>();
     expect(counters).toEqual({ guilty_votes: 0, not_guilty_votes: 1 });
+    expect(usage?.total).toBe(3);
+  });
+
+  it("keeps one source-of-truth row for concurrent first votes from the same voter", async () => {
+    const created = await createPublicCase();
+    const slug = created.case.slug;
+    const deviceId = token("concurrent-new-voter");
+    const responses = await Promise.all(Array.from({ length: 12 }, () => (
+      call(`/api/cases/${slug}/vote`, "PUT", { choice: "guilty", deviceId })
+    )));
+    const results = await Promise.all(responses.map(async (response) => {
+      expect(response.status).toBe(200);
+      return response.json() as Promise<{ changed: boolean; choice: VoteChoice; votes: PublicCase["votes"] }>;
+    }));
+
+    expect(results.filter(({ changed }) => changed)).toHaveLength(1);
+    expect(results.every(({ choice, votes }) => (
+      choice === "guilty" && votes.guilty === 1 && votes.notGuilty === 0
+    ))).toBe(true);
+    const voteRows = await env.DB.prepare(
+      "SELECT choice FROM votes WHERE case_id = (SELECT id FROM cases WHERE slug = ? LIMIT 1)",
+    ).bind(slug).all<{ choice: VoteChoice }>();
+    const counters = await env.DB.prepare(
+      "SELECT guilty_votes, not_guilty_votes FROM cases WHERE slug = ? LIMIT 1",
+    ).bind(slug).first<{ guilty_votes: number; not_guilty_votes: number }>();
+    expect(voteRows.results).toEqual([{ choice: "guilty" }]);
+    expect(counters).toEqual({ guilty_votes: 1, not_guilty_votes: 0 });
+  });
+
+  it("returns no-op for concurrent repeats of the same stored choice", async () => {
+    const created = await createPublicCase();
+    const slug = created.case.slug;
+    const deviceId = token("concurrent-repeat-voter");
+    const vote = () => call(`/api/cases/${slug}/vote`, "PUT", { choice: "guilty", deviceId });
+    expect(await (await vote()).json()).toMatchObject({ changed: true });
+
+    const responses = await Promise.all(Array.from({ length: 12 }, vote));
+    const results = await Promise.all(responses.map(async (response) => {
+      expect(response.status).toBe(200);
+      return response.json() as Promise<{ changed: boolean; choice: VoteChoice; votes: PublicCase["votes"] }>;
+    }));
+    const counters = await env.DB.prepare(
+      "SELECT guilty_votes, not_guilty_votes FROM cases WHERE slug = ? LIMIT 1",
+    ).bind(slug).first<{ guilty_votes: number; not_guilty_votes: number }>();
+    expect(results.every(({ changed }) => !changed)).toBe(true);
+    expect(results.every(({ choice, votes }) => (
+      choice === "guilty" && votes.guilty === 1 && votes.notGuilty === 0
+    ))).toBe(true);
+    expect(counters).toEqual({ guilty_votes: 1, not_guilty_votes: 0 });
+  });
+
+  it("reconciles concurrent opposing choices from the votes source of truth", async () => {
+    const created = await createPublicCase();
+    const slug = created.case.slug;
+    const deviceId = token("concurrent-switch-voter");
+    const vote = (choice: VoteChoice) => call(`/api/cases/${slug}/vote`, "PUT", { choice, deviceId });
+    expect(await (await vote("guilty")).json()).toMatchObject({ changed: true });
+
+    const responses = await Promise.all(Array.from({ length: 12 }, () => vote("not-guilty")));
+    const results = await Promise.all(responses.map(async (response) => {
+      expect(response.status).toBe(200);
+      return response.json() as Promise<{ changed: boolean; choice: VoteChoice; votes: PublicCase["votes"] }>;
+    }));
+    const voteRows = await env.DB.prepare(
+      "SELECT choice FROM votes WHERE case_id = (SELECT id FROM cases WHERE slug = ? LIMIT 1)",
+    ).bind(slug).all<{ choice: VoteChoice }>();
+    const counters = await env.DB.prepare(
+      "SELECT guilty_votes, not_guilty_votes FROM cases WHERE slug = ? LIMIT 1",
+    ).bind(slug).first<{ guilty_votes: number; not_guilty_votes: number }>();
+    expect(results.filter(({ changed }) => changed)).toHaveLength(1);
+    expect(results.every(({ choice, votes }) => (
+      choice === "not-guilty" && votes.guilty === 0 && votes.notGuilty === 1
+    ))).toBe(true);
+    expect(voteRows.results).toEqual([{ choice: "not-guilty" }]);
+    expect(counters).toEqual({ guilty_votes: 0, not_guilty_votes: 1 });
+  });
+
+  it("keeps counters aligned during mixed guilty and not-guilty competition", async () => {
+    const created = await createPublicCase();
+    const slug = created.case.slug;
+    const deviceId = token("mixed-choice-voter");
+    const choices = Array.from({ length: 24 }, (_, index): VoteChoice => (
+      index % 2 === 0 ? "guilty" : "not-guilty"
+    ));
+    const responses = await Promise.all(choices.map((choice) => (
+      call(`/api/cases/${slug}/vote`, "PUT", { choice, deviceId })
+    )));
+    const results = await Promise.all(responses.map(async (response) => {
+      expect(response.status).toBe(200);
+      return response.json() as Promise<{ changed: boolean; choice: VoteChoice; votes: PublicCase["votes"] }>;
+    }));
+
+    expect(results.every(({ changed, choice, votes }) => (
+      typeof changed === "boolean"
+      && (choice === "guilty"
+        ? votes.guilty === 1 && votes.notGuilty === 0
+        : votes.guilty === 0 && votes.notGuilty === 1)
+    ))).toBe(true);
+    const voteRow = await env.DB.prepare(
+      "SELECT choice FROM votes WHERE case_id = (SELECT id FROM cases WHERE slug = ? LIMIT 1) LIMIT 1",
+    ).bind(slug).first<{ choice: VoteChoice }>();
+    const counters = await env.DB.prepare(
+      "SELECT guilty_votes, not_guilty_votes FROM cases WHERE slug = ? LIMIT 1",
+    ).bind(slug).first<{ guilty_votes: number; not_guilty_votes: number }>();
+    expect(voteRow).not.toBeNull();
+    expect(counters).toEqual(voteRow?.choice === "guilty"
+      ? { guilty_votes: 1, not_guilty_votes: 0 }
+      : { guilty_votes: 0, not_guilty_votes: 1 });
   });
 
   it("deduplicates reports without granting anonymous reporters hide authority", async () => {

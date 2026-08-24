@@ -7,8 +7,10 @@ import { SERVER_LIMITS } from "../config/limits";
 import { hmacHash, validateDeviceId } from "../security/identity";
 import { consumeUsage } from "../security/rate-limit";
 
-interface VoteRow {
+interface VoteResultRow {
   choice: VoteChoice;
+  guilty_votes: number;
+  not_guilty_votes: number;
 }
 
 function validateChoice(value: unknown): VoteChoice {
@@ -25,31 +27,42 @@ export async function voteOnCase(request: Request, slug: string, env: Env): Prom
   if (!item) return notFound();
 
   const voterHash = await hmacHash(requireSecret(env.HMAC_SECRET, "HMAC_SECRET"), "voter", deviceId);
-  const existing = await env.DB.prepare("SELECT choice FROM votes WHERE case_id = ? AND voter_hash = ? LIMIT 1").bind(item.id, voterHash).first<VoteRow>();
-  if (existing?.choice === choice) {
-    return json({ choice, votes: { guilty: item.guilty_votes, notGuilty: item.not_guilty_votes }, changed: false });
-  }
-
   await consumeUsage(env.DB, "vote", voterHash, now);
-  if (!existing) {
-    const counterSql = choice === "guilty"
-      ? "UPDATE cases SET guilty_votes = guilty_votes + 1 WHERE id = ? AND status = 'active'"
-      : "UPDATE cases SET not_guilty_votes = not_guilty_votes + 1 WHERE id = ? AND status = 'active'";
-    await env.DB.batch([
-      env.DB.prepare("INSERT INTO votes (case_id, voter_hash, choice, created_at, updated_at) VALUES (?, ?, ?, ?, ?)").bind(item.id, voterHash, choice, now, now),
-      env.DB.prepare(counterSql).bind(item.id),
-    ]);
-  } else {
-    const counterSql = choice === "guilty"
-      ? "UPDATE cases SET not_guilty_votes = MAX(not_guilty_votes - 1, 0), guilty_votes = guilty_votes + 1 WHERE id = ? AND status = 'active'"
-      : "UPDATE cases SET guilty_votes = MAX(guilty_votes - 1, 0), not_guilty_votes = not_guilty_votes + 1 WHERE id = ? AND status = 'active'";
-    await env.DB.batch([
-      env.DB.prepare("UPDATE votes SET choice = ?, updated_at = ? WHERE case_id = ? AND voter_hash = ?").bind(choice, now, item.id, voterHash),
-      env.DB.prepare(counterSql).bind(item.id),
-    ]);
-  }
+  const results = await env.DB.batch([
+    env.DB
+      .prepare(
+        `INSERT INTO votes (case_id, voter_hash, choice, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(case_id, voter_hash) DO UPDATE SET
+           choice = excluded.choice,
+           updated_at = excluded.updated_at
+         WHERE votes.choice <> excluded.choice`,
+      )
+      .bind(item.id, voterHash, choice, now, now),
+    env.DB
+      .prepare(
+        `UPDATE cases SET
+           guilty_votes = (SELECT COUNT(*) FROM votes WHERE case_id = cases.id AND choice = 'guilty'),
+           not_guilty_votes = (SELECT COUNT(*) FROM votes WHERE case_id = cases.id AND choice = 'not-guilty')
+         WHERE id = ? AND status = 'active' AND expires_at > ?`,
+      )
+      .bind(item.id, now),
+    env.DB
+      .prepare(
+        `SELECT votes.choice, cases.guilty_votes, cases.not_guilty_votes
+         FROM cases
+         INNER JOIN votes ON votes.case_id = cases.id AND votes.voter_hash = ?
+         WHERE cases.id = ? AND cases.status = 'active' AND cases.expires_at > ?
+         LIMIT 1`,
+      )
+      .bind(voterHash, item.id, now),
+  ]);
 
-  const updated = await getActiveCaseBySlug(env.DB, slug, now);
+  const updated = results[2].results[0] as VoteResultRow | undefined;
   if (!updated) return notFound();
-  return json({ choice, votes: { guilty: updated.guilty_votes, notGuilty: updated.not_guilty_votes }, changed: true });
+  return json({
+    choice: updated.choice,
+    votes: { guilty: updated.guilty_votes, notGuilty: updated.not_guilty_votes },
+    changed: results[0].meta.changes > 0,
+  });
 }

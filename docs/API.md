@@ -27,7 +27,7 @@ D1 연결을 확인하고 `{ ok, service, time }`을 반환한다.
 
 ## `PUT /api/cases/:slug/vote`
 
-`{ choice: "guilty" | "not-guilty", deviceId }`. 첫 표는 생성, 같은 표는 no-op, 변경은 이전 counter 감소와 새 counter 증가를 한 D1 batch로 처리한다.
+`{ choice: "guilty" | "not-guilty", deviceId }`. D1 batch가 표를 upsert하고 `votes`를 기준으로 counter를 다시 계산한다. 응답의 `changed`는 해당 요청이 vote row를 실제 생성·변경했는지를 뜻한다. 같은 선택의 `changed: false` 요청도 동시 race를 이용한 quota 우회를 막기 위해 hourly/daily abuse limit 평가 대상이다.
 
 ## `POST /api/cases/:slug/report`
 
