@@ -1,6 +1,6 @@
 # API
 
-모든 body는 `application/json`, 최대 8 KiB다. 오류는 `{ "error": { "code", "message" } }`이고 숨김·만료·없는 사건은 같은 404다.
+모든 body는 `application/json`, 최대 8 KiB이며 문서화된 필드 외의 값은 거절한다. 오류는 `{ "error": { "code", "message" } }`이고 숨김·만료·없는 사건은 같은 404다.
 
 ## `GET /api/health`
 
@@ -31,7 +31,7 @@ D1 연결을 확인하고 `{ ok, service, time }`을 반환한다.
 
 ## `POST /api/cases/:slug/report`
 
-`{ reason: "personal-info" | "threat" | "hate" | "spam" | "other", deviceId }`. 같은 reporter는 idempotent하다. threshold 도달 시 사건을 숨긴다.
+`{ reason: "personal-info" | "threat" | "hate" | "spam" | "other", deviceId }`. 같은 reporter는 idempotent하다. 익명 신고는 관리자 검토 신호만 누적하며 사건을 숨길 권한을 갖지 않는다.
 
 ## 관리자
 

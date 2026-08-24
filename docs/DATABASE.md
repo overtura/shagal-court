@@ -24,4 +24,4 @@ prepared statement와 bind만 사용한다. `SELECT *`는 금지하며 필요한
 
 ## lifecycle
 
-scheduled cleanup이 한 번에 최대 100개 사건을 expiry 순으로 삭제하고 만료 rate rows를 정리한다. 기본 보존은 90일이며 연장은 protected change다.
+scheduled cleanup이 한 번에 최대 1,000개 사건을 expiry 순으로 삭제하고 만료 rate rows를 정리한다. 이는 일일 생성 상한의 두 배로, 일일 cron 구간이 두 UTC 날짜에 걸쳐도 정상 허용량을 소화한다. 기본 보존은 90일이며 연장은 protected change다.

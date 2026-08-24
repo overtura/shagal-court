@@ -2,7 +2,7 @@ import type { VoteChoice } from "../../shared/contracts";
 import { getActiveCaseBySlug } from "../db/cases";
 import type { Env } from "../env";
 import { requireSecret } from "../env";
-import { HttpError, json, notFound, parseJson } from "../http";
+import { asJsonObject, HttpError, json, notFound, parseJson } from "../http";
 import { SERVER_LIMITS } from "../config/limits";
 import { hmacHash, validateDeviceId } from "../security/identity";
 import { consumeUsage } from "../security/rate-limit";
@@ -17,7 +17,7 @@ function validateChoice(value: unknown): VoteChoice {
 }
 
 export async function voteOnCase(request: Request, slug: string, env: Env): Promise<Response> {
-  const body = (await parseJson(request, SERVER_LIMITS.requestBytes)) as Record<string, unknown>;
+  const body = asJsonObject(await parseJson(request, SERVER_LIMITS.requestBytes), ["choice", "deviceId"]);
   const choice = validateChoice(body.choice);
   const deviceId = validateDeviceId(body.deviceId);
   const now = Math.floor(Date.now() / 1000);

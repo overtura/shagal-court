@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../../src/server/index";
 import { cleanupExpired } from "../../src/server/cleanup";
-import { verifyTurnstile } from "../../src/server/security/turnstile";
+import { SERVER_LIMITS } from "../../src/server/config/limits";
 import type { Env } from "../../src/server/env";
 import { calculateVerdict, createLocalVerdict } from "../../src/shared/verdict-engine";
 import type { PublicCase, ReportReason, VoteChoice } from "../../src/shared/contracts";
@@ -19,6 +19,10 @@ async function call(path: string, method = "GET", body?: unknown, headers?: Head
     headers: body ? { "content-type": "application/json", ...headers } : headers,
     body: body ? JSON.stringify(body) : undefined,
   }), testEnv);
+}
+
+async function callRaw(path: string, method: string, body: string, headers: HeadersInit): Promise<Response> {
+  return worker.fetch(new Request(`https://court.test${path}`, { method, headers, body }), testEnv);
 }
 
 function createPayload(overrides: Record<string, unknown> = {}) {
@@ -77,7 +81,9 @@ describe("Worker and D1 API", () => {
     expect(read.status).toBe(200);
     expect(await read.json()).toMatchObject({ case: { slug: first.case.slug, publicStatement: payload.publicStatement } });
     const usage = await env.DB.prepare("SELECT SUM(count) AS total FROM rate_limits WHERE action = 'case'").first<{ total: number }>();
-    expect(usage?.total).toBeGreaterThanOrEqual(1);
+    const cases = await env.DB.prepare("SELECT COUNT(*) AS total FROM cases").first<{ total: number }>();
+    expect(usage?.total).toBe(1);
+    expect(cases?.total).toBe(1);
   });
 
   it("stores only HMAC identity hashes and no raw device or network identifiers", async () => {
@@ -97,6 +103,34 @@ describe("Worker and D1 API", () => {
     expect(personalInfo.status).toBe(422);
   });
 
+  it("rejects fields that could smuggle private source text into D1", async () => {
+    const payload = createPayload();
+    const nested = await call("/api/cases", "POST", {
+      ...payload,
+      analysis: { ...payload.analysis, originalStatement: "서버에 저장하면 안 되는 원문" },
+    });
+    const topLevel = await call("/api/cases", "POST", { ...payload, originalStatement: "서버에 저장하면 안 되는 원문" });
+
+    expect(nested.status).toBe(400);
+    expect(topLevel.status).toBe(400);
+    const cases = await env.DB.prepare("SELECT COUNT(*) AS total FROM cases").first<{ total: number }>();
+    expect(cases?.total).toBe(0);
+  });
+
+  it("rejects malformed, non-JSON, and oversized write bodies without persistence", async () => {
+    expect((await callRaw("/api/cases", "POST", "null", { "content-type": "application/json" })).status).toBe(400);
+    expect((await callRaw("/api/cases", "POST", "{", { "content-type": "application/json" })).status).toBe(400);
+    expect((await callRaw("/api/cases", "POST", JSON.stringify(createPayload()), { "content-type": "text/plain" })).status).toBe(415);
+    const oversized = JSON.stringify({ ...createPayload(), padding: "x".repeat(SERVER_LIMITS.requestBytes) });
+    expect((await callRaw("/api/cases", "POST", oversized, { "content-type": "application/json" })).status).toBe(413);
+
+    const created = await createPublicCase();
+    expect((await callRaw(`/api/cases/${created.case.slug}/vote`, "PUT", "null", { "content-type": "application/json" })).status).toBe(400);
+    expect((await callRaw(`/api/cases/${created.case.slug}/report`, "POST", "null", { "content-type": "application/json" })).status).toBe(400);
+    const cases = await env.DB.prepare("SELECT COUNT(*) AS total FROM cases").first<{ total: number }>();
+    expect(cases?.total).toBe(1);
+  });
+
   it("creates, no-ops, and moves a vote without corrupting counters", async () => {
     const created = await createPublicCase();
     const slug = created.case.slug;
@@ -110,7 +144,7 @@ describe("Worker and D1 API", () => {
     expect(counters).toEqual({ guilty_votes: 0, not_guilty_votes: 1 });
   });
 
-  it("deduplicates reports and hides a case at the threshold", async () => {
+  it("deduplicates reports without granting anonymous reporters hide authority", async () => {
     const payload = createPayload();
     const createdResponse = await call("/api/cases", "POST", payload);
     expect(createdResponse.status).toBe(201);
@@ -122,12 +156,15 @@ describe("Worker and D1 API", () => {
     expect(await (await report(firstReporter, "spam")).json()).toMatchObject({ duplicate: true });
     expect((await report(token("reporter"), "personal-info")).status).toBe(201);
     expect((await report(token("reporter"), "threat")).status).toBe(201);
-    expect((await call(`/api/cases/${slug}`)).status).toBe(404);
-    expect((await call("/api/cases", "POST", payload)).status).toBe(404);
+    expect((await call(`/api/cases/${slug}`)).status).toBe(200);
+    expect((await call("/api/cases", "POST", payload)).status).toBe(200);
+    const row = await env.DB.prepare("SELECT status, report_count FROM cases WHERE slug = ? LIMIT 1").bind(slug).first<{ status: string; report_count: number }>();
+    expect(row).toEqual({ status: "active", report_count: 3 });
   });
 
   it("requires the admin token for hide and delete", async () => {
     const first = await createPublicCase();
+    expect((await call(`/api/admin/cases/${first.case.slug}/hide`, "POST")).status).toBe(401);
     expect((await call(`/api/admin/cases/${first.case.slug}/hide`, "POST", undefined, { authorization: "Bearer wrong-token-that-is-long-enough" })).status).toBe(401);
     expect((await call(`/api/admin/cases/${first.case.slug}/hide`, "POST", undefined, { authorization: `Bearer ${env.ADMIN_TOKEN}` })).status).toBe(200);
     expect((await call(`/api/cases/${first.case.slug}`)).status).toBe(404);
@@ -143,22 +180,77 @@ describe("Worker and D1 API", () => {
       const response = await call("/api/cases", "POST", createPayload({ deviceId, idempotencyKey: token(`publish${index}`) }));
       expect(response.status).toBe(201);
     }
-    const limited = await call("/api/cases", "POST", createPayload({ deviceId, idempotencyKey: token("publish6") }));
-    expect(limited.status).toBe(429);
+    for (let index = 5; index < 12; index += 1) {
+      const limited = await call("/api/cases", "POST", createPayload({ deviceId, idempotencyKey: token(`publish${index}`) }));
+      expect(limited.status).toBe(429);
+    }
 
     const day = new Date().toISOString().slice(0, 10);
+    const afterHourlyRejections = await env.DB.prepare("SELECT cases_created FROM daily_usage WHERE usage_day = ? LIMIT 1").bind(day).first<{ cases_created: number }>();
+    expect(afterHourlyRejections?.cases_created).toBe(5);
     await env.DB.prepare("INSERT INTO daily_usage (usage_day, cases_created) VALUES (?, 500) ON CONFLICT(usage_day) DO UPDATE SET cases_created = 500").bind(day).run();
     const daily = await call("/api/cases", "POST", createPayload({ deviceId: token("daily-device") }));
     expect(daily.status).toBe(503);
     expect(await daily.json()).toMatchObject({ error: { code: "daily_limit_reached" } });
+    const capped = await env.DB.prepare("SELECT cases_created FROM daily_usage WHERE usage_day = ? LIMIT 1").bind(day).first<{ cases_created: number }>();
+    expect(capped?.cases_created).toBe(SERVER_LIMITS.casesPerDay);
   });
 
-  it("rejects failed Turnstile verification", async () => {
+  it("fails closed when configured Turnstile proof is missing, invalid, or from another hostname", async () => {
+    const securedEnv: Env = {
+      DB: testEnv.DB,
+      APP_ENV: testEnv.APP_ENV,
+      CASE_TTL_DAYS: testEnv.CASE_TTL_DAYS,
+      HMAC_SECRET: testEnv.HMAC_SECRET,
+      ADMIN_TOKEN: testEnv.ADMIN_TOKEN,
+      TURNSTILE_SECRET: "test-turnstile-secret-that-is-long-enough",
+      TURNSTILE_HOSTNAME: "court.test",
+    };
+    const create = (turnstileToken?: string) => worker.fetch(new Request("https://court.test/api/cases", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(createPayload(turnstileToken ? { turnstileToken } : {})),
+    }), securedEnv);
+
+    expect((await create()).status).toBe(400);
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ success: false }), {
       status: 200,
       headers: { "content-type": "application/json" },
     }));
-    await expect(verifyTurnstile("token-that-is-long-enough", "secret-that-is-long-enough", undefined)).rejects.toMatchObject({ code: "turnstile_failed" });
+    expect((await create("token-that-is-long-enough")).status).toBe(403);
+    vi.mocked(globalThis.fetch).mockResolvedValue(new Response(JSON.stringify({ success: true, hostname: "attacker.example" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }));
+    expect((await create("another-token-that-is-long-enough")).status).toBe(403);
+    const cases = await env.DB.prepare("SELECT COUNT(*) AS total FROM cases").first<{ total: number }>();
+    expect(cases?.total).toBe(0);
+  });
+
+  it("denies browser cross-origin write preflights and simple-request fallbacks", async () => {
+    const preflightHeaders = {
+      origin: "https://attacker.example",
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "content-type",
+    };
+    const createPreflight = await call("/api/cases", "OPTIONS", undefined, preflightHeaders);
+    const adminPreflight = await call("/api/admin/cases/aaaaaaaaaa", "OPTIONS", undefined, {
+      ...preflightHeaders,
+      "access-control-request-method": "DELETE",
+      "access-control-request-headers": "authorization",
+    });
+    const simpleRequest = await callRaw("/api/cases", "POST", JSON.stringify(createPayload()), {
+      origin: "https://attacker.example",
+      "content-type": "text/plain",
+    });
+
+    expect(createPreflight.status).toBe(404);
+    expect(adminPreflight.status).toBe(404);
+    expect(createPreflight.headers.get("access-control-allow-origin")).toBeNull();
+    expect(adminPreflight.headers.get("access-control-allow-origin")).toBeNull();
+    expect(simpleRequest.status).toBe(415);
+    const cases = await env.DB.prepare("SELECT COUNT(*) AS total FROM cases").first<{ total: number }>();
+    expect(cases?.total).toBe(0);
   });
 
   it("returns generalized 404 for SQL injection, expiration, and hidden records", async () => {
@@ -174,5 +266,34 @@ describe("Worker and D1 API", () => {
     expect((await call("/api/cases", "POST", payload)).status).toBe(404);
     const result = await cleanupExpired(testEnv);
     expect(result.cases).toBeGreaterThanOrEqual(1);
+  });
+
+  it("deletes the bounded two-day expiry cohort while preserving active cases", async () => {
+    const active = await createPublicCase();
+    const now = Math.floor(Date.now() / 1000);
+    await env.DB.prepare(
+      `WITH RECURSIVE sequence(value) AS (
+         SELECT 1
+         UNION ALL
+         SELECT value + 1 FROM sequence WHERE value < ?
+       )
+       INSERT INTO cases (
+         id, slug, public_statement, category, analysis_json, verdict_code,
+         verdict_score, verdict_json, engine_version, status, guilty_votes,
+         not_guilty_votes, report_count, creator_hash, idempotency_hash,
+         created_at, expires_at
+       )
+       SELECT
+         'expired-id-' || value, 'expired_slug_' || value, '만료 사건', '순수 황당', '{}',
+         'mitigated', 50, '{}', 'test', 'active', 0, 0, 0,
+         'creator-' || value, 'idempotency-' || value, ?, ?
+       FROM sequence`,
+    ).bind(SERVER_LIMITS.cleanupBatchSize, now - 100, now - 1).run();
+
+    const result = await cleanupExpired(testEnv, now);
+    expect(result.cases).toBe(SERVER_LIMITS.cleanupBatchSize);
+    const expired = await env.DB.prepare("SELECT COUNT(*) AS total FROM cases WHERE expires_at <= ?").bind(now).first<{ total: number }>();
+    expect(expired?.total).toBe(0);
+    expect((await call(`/api/cases/${active.case.slug}`)).status).toBe(200);
   });
 });

@@ -15,7 +15,7 @@ D1 Free 기준은 **5 million rows read/day**, **100,000 rows written/day**, **5
 - 외부 유료 서비스와 서버 AI가 없다.
 - Static Assets는 Worker를 거치지 않고, `/api/*`만 dynamic request다.
 - 공개 사건은 unlisted이며 피드·검색·랭킹·polling이 없다.
-- 사건은 90일 만료, cleanup은 100개 batch다.
+- 사건은 90일 만료, cleanup은 일일 생성 상한 두 배인 1,000개 bounded batch다.
 - D1 조회는 prepared statement, 명시적 column, index, single-row slug lookup을 사용한다.
 - hourly limit: 사건 5, 투표 60, 신고 10 per HMAC device.
 - daily soft limit: 사건 500, 투표 10,000, 신고 2,000.

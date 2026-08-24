@@ -14,11 +14,11 @@ Invoke-RestMethod -Method Post -Headers $headers -Uri "https://<worker>/api/admi
 Invoke-RestMethod -Method Delete -Headers $headers -Uri "https://<worker>/api/admin/cases/<slug>"
 ```
 
-3개 고유 HMAC reporter가 신고하면 자동 숨김된다. 숨김·만료·삭제 후 외부 응답은 모두 일반 404다.
+익명 신고는 `report_count` 검토 신호만 누적하고 자동 숨김하지 않는다. client가 정한 device ID는 인증 수단이 아니므로 숨김·삭제는 위 관리자 경로에서만 수행한다. 숨김·만료·삭제 후 외부 응답은 모두 일반 404다.
 
 ## cleanup
 
-매일 UTC 03:17 scheduled handler가 만료 사건 100개와 만료 rate rows를 정리한다. backlog가 생기면 다음 cron에서 계속 처리한다. 보존 기간을 늘리거나 batch를 무제한으로 바꾸지 않는다.
+매일 UTC 03:17 scheduled handler가 만료 사건을 expiry 순으로 최대 1,000개와 만료 rate rows를 정리한다. 이는 UTC 일일 생성 상한 500의 두 배이며 cron 구간의 날짜 경계를 포함한다. 비정상 backlog가 더 크면 다음 cron에서 계속 처리한다. 보존 기간을 늘리거나 batch를 무제한으로 바꾸지 않는다.
 
 ## 한도와 degraded mode
 

@@ -3,17 +3,14 @@ import { calculateVerdict, isVerdictAnalysis } from "../../shared/verdict-engine
 import { getActiveCaseBySlug, getCaseByIdempotencyHash, insertCase, toPublicCase } from "../db/cases";
 import type { Env } from "../env";
 import { requireSecret } from "../env";
-import { HttpError, json, notFound, parseJson } from "../http";
+import { asJsonObject, HttpError, json, notFound, parseJson } from "../http";
 import { SERVER_LIMITS } from "../config/limits";
 import { validatePublicStatement } from "../security/content";
 import { hmacHash, randomToken, validateDeviceId, validateIdempotencyKey } from "../security/identity";
 import { consumeUsage } from "../security/rate-limit";
 import { verifyTurnstile } from "../security/turnstile";
 
-function asObject(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new HttpError(400, "invalid_body", "요청 본문이 올바르지 않습니다.");
-  return value as Record<string, unknown>;
-}
+const CREATE_CASE_KEYS = ["publicStatement", "analysis", "deviceId", "idempotencyKey", "consent", "turnstileToken"] as const;
 
 function caseTtlSeconds(env: Env): number {
   const requestedDays = Number.parseInt(env.CASE_TTL_DAYS, 10);
@@ -22,7 +19,7 @@ function caseTtlSeconds(env: Env): number {
 }
 
 export async function createCase(request: Request, env: Env): Promise<Response> {
-  const body = asObject(await parseJson(request, SERVER_LIMITS.requestBytes));
+  const body = asJsonObject(await parseJson(request, SERVER_LIMITS.requestBytes), CREATE_CASE_KEYS);
   const publicStatement = validatePublicStatement(body.publicStatement);
   const deviceId = validateDeviceId(body.deviceId);
   const idempotencyKey = validateIdempotencyKey(body.idempotencyKey);

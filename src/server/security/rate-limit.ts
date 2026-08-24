@@ -26,6 +26,8 @@ export async function consumeUsage(db: D1Database, action: UsageAction, actorHas
   const rateKey = `${action}:${windowStart}:${actorHash}`;
   const day = new Date(now * 1000).toISOString().slice(0, 10);
   const dailyColumn = DAILY_COLUMNS[action];
+  const hourlyLimit = HOURLY_LIMITS[action];
+  const dailyLimit = DAILY_LIMITS[action];
 
   const results = await db.batch([
     db
@@ -38,15 +40,16 @@ export async function consumeUsage(db: D1Database, action: UsageAction, actorHas
     db.prepare("SELECT count FROM rate_limits WHERE rate_key = ? LIMIT 1").bind(rateKey),
     db
       .prepare(
-        `INSERT INTO daily_usage (usage_day, ${dailyColumn}) VALUES (?, 1)
-         ON CONFLICT(usage_day) DO UPDATE SET ${dailyColumn} = ${dailyColumn} + 1`,
+        `INSERT INTO daily_usage (usage_day, ${dailyColumn})
+         SELECT ?, 1
+         WHERE (SELECT count FROM rate_limits WHERE rate_key = ? LIMIT 1) <= ?
+         ON CONFLICT(usage_day) DO UPDATE SET ${dailyColumn} = ${dailyColumn} + 1
+         WHERE ${dailyColumn} < ?`,
       )
-      .bind(day),
-    db.prepare(`SELECT ${dailyColumn} AS count FROM daily_usage WHERE usage_day = ? LIMIT 1`).bind(day),
+      .bind(day, rateKey, hourlyLimit, dailyLimit),
   ]);
 
   const hourlyCount = Number((results[1].results[0] as { count?: number } | undefined)?.count ?? 0);
-  const dailyCount = Number((results[3].results[0] as { count?: number } | undefined)?.count ?? 0);
-  if (hourlyCount > HOURLY_LIMITS[action]) throw new HttpError(429, "rate_limited", "잠시 후 다시 시도해 주세요.");
-  if (dailyCount > DAILY_LIMITS[action]) throw new HttpError(503, "daily_limit_reached", "오늘의 무료 공개 한도에 도달했습니다. 로컬 판결은 계속 사용할 수 있습니다.");
+  if (hourlyCount > hourlyLimit) throw new HttpError(429, "rate_limited", "잠시 후 다시 시도해 주세요.");
+  if (results[2].meta.changes === 0) throw new HttpError(503, "daily_limit_reached", "오늘의 무료 공개 한도에 도달했습니다. 로컬 판결은 계속 사용할 수 있습니다.");
 }
