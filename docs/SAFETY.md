@@ -12,11 +12,12 @@
 - HTML·Markdown 차단
 - 위협·보복 표현 차단
 - analysis category와 모든 축 0~1 검증
+- 문서화된 body·analysis 필드만 허용해 원문·임의 metadata의 저장 우회를 차단
 - prepared D1 statement와 strict slug pattern
 
 ## 남용 방어
 
-Turnstile secret이 있으면 공개 전에 검증한다. 없을 때도 HMAC device 기준 hourly limit과 UTC daily soft limit을 적용한다. 신고는 동일 reporter가 한 사건에 한 번만 집계되고 3건에서 자동 숨김된다. 관리자는 secret bearer token으로 숨김·삭제할 수 있다.
+Turnstile secret이 있으면 공개 전에 검증한다. 없을 때도 HMAC device 기준 hourly limit과 UTC daily soft limit을 적용하며, hourly 거절 요청은 global daily usage를 소진하지 않는다. client device ID는 계정이나 Sybil 방지 수단이 아니므로 익명 신고는 동일 reporter가 한 사건에 한 번만 집계되는 검토 신호이며 공개 상태를 바꾸지 않는다. secret bearer token을 검증한 관리자만 숨김·삭제할 수 있다.
 
 ## 금지 출력
 

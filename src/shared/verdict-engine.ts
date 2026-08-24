@@ -22,6 +22,8 @@ const CATEGORY_KEYWORDS: ReadonlyArray<[CaseCategory, readonly string[]]> = [
 const RESPONSIBILITY_WORDS = ["안", "못", "거절", "무시", "취소", "빼앗", "새치기", "늦", "고장"];
 const HARM_WORDS = ["손해", "잃", "아프", "해고", "망가", "환불", "돈", "시간", "피해"];
 const MITIGATION_WORDS = ["실수", "몰랐", "사정", "급", "오해", "처음", "미안", "착각"];
+const ANALYSIS_AXES = ["unfairness", "absurdity", "otherResponsibility", "harm", "misunderstanding", "mitigation", "confidence"] as const;
+const ANALYSIS_KEYS = new Set<string>(["category", ...ANALYSIS_AXES]);
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 const roundAxis = (value: number) => Math.round(clamp(value) * 1000) / 1000;
@@ -75,13 +77,15 @@ export function analyzeStatement(textInput: string, embedding?: readonly number[
 }
 
 export function isVerdictAnalysis(value: unknown): value is VerdictAnalysis {
-  if (!value || typeof value !== "object") return false;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const item = value as Record<string, unknown>;
-  const axes = ["unfairness", "absurdity", "otherResponsibility", "harm", "misunderstanding", "mitigation", "confidence"];
+  const keys = Object.keys(item);
   return (
+    keys.length === ANALYSIS_KEYS.size &&
+    keys.every((key) => ANALYSIS_KEYS.has(key)) &&
     typeof item.category === "string" &&
     CATEGORIES.includes(item.category as CaseCategory) &&
-    axes.every((axis) => typeof item[axis] === "number" && Number.isFinite(item[axis]) && item[axis] >= 0 && item[axis] <= 1)
+    ANALYSIS_AXES.every((axis) => typeof item[axis] === "number" && Number.isFinite(item[axis]) && item[axis] >= 0 && item[axis] <= 1)
   );
 }
 

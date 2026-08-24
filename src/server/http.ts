@@ -21,9 +21,22 @@ export function notFound(): Response {
   return problem(404, "not_found", "사건을 찾을 수 없습니다.");
 }
 
+export function asJsonObject(value: unknown, allowedKeys: readonly string[]): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpError(400, "invalid_body", "요청 본문이 올바르지 않습니다.");
+  }
+  const item = value as Record<string, unknown>;
+  const allowed = new Set(allowedKeys);
+  if (Object.keys(item).some((key) => !allowed.has(key))) {
+    throw new HttpError(400, "invalid_body", "요청 본문에 허용되지 않은 필드가 있습니다.");
+  }
+  return item;
+}
+
 export async function parseJson(request: Request, maximumBytes: number): Promise<unknown> {
   const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.toLowerCase().startsWith("application/json")) throw new HttpError(415, "invalid_content_type", "JSON 요청만 허용됩니다.");
+  const mediaType = contentType.split(";", 1)[0]?.trim().toLowerCase();
+  if (mediaType !== "application/json") throw new HttpError(415, "invalid_content_type", "JSON 요청만 허용됩니다.");
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
   if (declaredLength > maximumBytes) throw new HttpError(413, "request_too_large", "요청이 너무 큽니다.");
   const raw = await request.text();

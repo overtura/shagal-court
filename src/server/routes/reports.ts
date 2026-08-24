@@ -2,7 +2,7 @@ import type { ReportReason } from "../../shared/contracts";
 import { getActiveCaseBySlug } from "../db/cases";
 import type { Env } from "../env";
 import { requireSecret } from "../env";
-import { HttpError, json, notFound, parseJson } from "../http";
+import { asJsonObject, HttpError, json, notFound, parseJson } from "../http";
 import { SERVER_LIMITS } from "../config/limits";
 import { hmacHash, validateDeviceId } from "../security/identity";
 import { consumeUsage } from "../security/rate-limit";
@@ -15,7 +15,7 @@ function validateReason(value: unknown): ReportReason {
 }
 
 export async function reportCase(request: Request, slug: string, env: Env): Promise<Response> {
-  const body = (await parseJson(request, SERVER_LIMITS.requestBytes)) as Record<string, unknown>;
+  const body = asJsonObject(await parseJson(request, SERVER_LIMITS.requestBytes), ["reason", "deviceId"]);
   const reason = validateReason(body.reason);
   const deviceId = validateDeviceId(body.deviceId);
   const now = Math.floor(Date.now() / 1000);
@@ -29,9 +29,7 @@ export async function reportCase(request: Request, slug: string, env: Env): Prom
   await consumeUsage(env.DB, "report", reporterHash, now);
   await env.DB.batch([
     env.DB.prepare("INSERT INTO reports (case_id, reporter_hash, reason, created_at) VALUES (?, ?, ?, ?)").bind(item.id, reporterHash, reason, now),
-    env.DB
-      .prepare("UPDATE cases SET report_count = report_count + 1, status = CASE WHEN report_count + 1 >= ? THEN 'hidden' ELSE status END WHERE id = ?")
-      .bind(SERVER_LIMITS.reportHideThreshold, item.id),
+    env.DB.prepare("UPDATE cases SET report_count = report_count + 1 WHERE id = ? AND status = 'active'").bind(item.id),
   ]);
   return json({ accepted: true, duplicate: false }, { status: 201 });
 }
